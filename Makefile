@@ -1,4 +1,4 @@
-.PHONY: run build test tidy db-up db-down
+.PHONY: run build test tidy db-up db-down migrate crawl
 
 run:
 	go run ./cmd/wend
@@ -17,3 +17,9 @@ db-up:
 
 db-down:
 	docker compose down
+
+migrate:
+	go run ./cmd/wend migrate
+
+crawl:
+	go run ./cmd/wend crawl bbc

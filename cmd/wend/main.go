@@ -11,14 +11,43 @@ import (
 	"time"
 
 	"wend.press/internal/config"
+	"wend.press/internal/store"
 	"wend.press/internal/web"
 )
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "migrate" {
+		if err := runMigrate(); err != nil {
+			slog.Error("migrate", "err", err)
+			os.Exit(1)
+		}
+		return
+	}
 	if err := run(); err != nil {
 		slog.Error("fatal", "err", err)
 		os.Exit(1)
 	}
+}
+
+func runMigrate() error {
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: cfg.LogLevel,
+	})))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	pool, err := store.Open(ctx, cfg.DatabaseURL)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+
+	return store.Migrate(ctx, pool)
 }
 
 func run() error {

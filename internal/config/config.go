@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+
+	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -13,6 +15,10 @@ type Config struct {
 }
 
 func Load() (Config, error) {
+	// Best-effort: .env may not exist in production, where the
+	// environment is populated by the orchestrator instead.
+	_ = godotenv.Load(".env", "configs/.env")
+
 	cfg := Config{
 		HTTPAddr:    envOr("WEND_HTTP_ADDR", ":8080"),
 		DatabaseURL: os.Getenv("WEND_DATABASE_URL"),
