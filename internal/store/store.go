@@ -1,16 +1,25 @@
 // Package store owns the PostgreSQL layer: connections, migrations,
-// and (in later phases) the repositories.
+// and repository methods for domain objects.
 package store
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Open returns a configured pool with a live connection verified.
+type Store struct {
+	pool *pgxpool.Pool
+}
+
+func New(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
+
+func (s *Store) Pool() *pgxpool.Pool { return s.pool }
+
 func Open(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	cfg, err := pgxpool.ParseConfig(url)
 	if err != nil {
@@ -30,4 +39,11 @@ func Open(ctx context.Context, url string) (*pgxpool.Pool, error) {
 		return nil, fmt.Errorf("ping: %w", err)
 	}
 	return pool, nil
+}
+
+// isNoRows reports whether err is pgx's sentinel for "no rows".
+// Kept here rather than next to any single caller so every
+// repository method shares one definition.
+func isNoRows(err error) bool {
+	return errors.Is(err, pgx.ErrNoRows)
 }
