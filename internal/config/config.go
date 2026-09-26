@@ -4,24 +4,28 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-
-	"github.com/joho/godotenv"
+	"strings"
 )
 
 type Config struct {
 	HTTPAddr    string
 	LogLevel    slog.Level
 	DatabaseURL string
+
+	LangTarget    string
+	LangDetect    []string
+	GazetteerPath string
 }
 
-func Load() (Config, error) {
-	// Best-effort: .env may not exist in production, where the
-	// environment is populated by the orchestrator instead.
-	_ = godotenv.Load(".env", "configs/.env")
+const defaultDetectLanguages = "en,es,fr,de,pt,it,nl,ru,ar,zh,ja,ko,tr,pl,uk,fa,hi,id,vi,th"
 
+func Load() (Config, error) {
 	cfg := Config{
-		HTTPAddr:    envOr("WEND_HTTP_ADDR", ":8080"),
-		DatabaseURL: os.Getenv("WEND_DATABASE_URL"),
+		HTTPAddr:      envOr("WEND_HTTP_ADDR", ":8080"),
+		DatabaseURL:   os.Getenv("WEND_DATABASE_URL"),
+		LangTarget:    envOr("WEND_LANG_TARGET", "en"),
+		LangDetect:    splitCSV(envOr("WEND_LANG_DETECT", defaultDetectLanguages)),
+		GazetteerPath: os.Getenv("WEND_GAZETTEER_PATH"),
 	}
 
 	level, err := parseLevel(envOr("WEND_LOG_LEVEL", "info"))
@@ -34,6 +38,17 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("WEND_DATABASE_URL is required")
 	}
 	return cfg, nil
+}
+
+func splitCSV(s string) []string {
+	parts := strings.Split(s, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 func envOr(k, fallback string) string {
