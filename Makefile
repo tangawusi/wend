@@ -34,3 +34,6 @@ crawl-bbc:
 
 crawl-guardian:
 	go run ./cmd/wend crawl guardian
+
+entities-reset:
+	go run ./cmd/wend entities reset
