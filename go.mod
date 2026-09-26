@@ -6,6 +6,7 @@ require (
 	github.com/gocolly/colly/v2 v2.3.0
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.11.0
+	github.com/joho/godotenv v1.5.1
 	github.com/pemistahl/lingua-go v1.4.0
 	github.com/tsawler/prose/v3 v3.0.0-beta2
 	golang.org/x/net v0.59.0

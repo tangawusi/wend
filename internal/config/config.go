@@ -2,6 +2,8 @@ package config
 
 import (
 	"fmt"
+
+	"github.com/joho/godotenv"
 	"log/slog"
 	"os"
 	"strings"
@@ -20,6 +22,17 @@ type Config struct {
 const defaultDetectLanguages = "en,es,fr,de,pt,it,nl,ru,ar,zh,ja,ko,tr,pl,uk,fa,hi,id,vi,th"
 
 func Load() (Config, error) {
+	// Best-effort: .env may not exist in production, where the
+	// orchestrator populates the environment directly. A missing
+	// file is not an error; a malformed one is logged and ignored.
+	// Both paths checked: .env at cwd covers `make run` from the
+	// repo root; configs/.env covers running the binary from bin/.
+	if err := godotenv.Load(".env", "configs/.env"); err != nil {
+		if !os.IsNotExist(err) {
+			slog.Warn("dotenv load", "err", err)
+		}
+	}
+
 	cfg := Config{
 		HTTPAddr:      envOr("WEND_HTTP_ADDR", ":8080"),
 		DatabaseURL:   os.Getenv("WEND_DATABASE_URL"),
