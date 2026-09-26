@@ -168,23 +168,27 @@ func (r *Runner) ingestOne(ctx context.Context, sourceID uuid.UUID, it Discovere
 	return n, nil
 }
 
+// extractAndLink runs NER, resolves geographic candidates, and writes
+// entity rows. Returns the number of links written.
+//
+// Resolution rules:
+//   - PERSON, ORG, PRODUCT, EVENT, FAC, NORP → stored as-is
+//   - GPE → country (via country registry), else city (via gazetteer),
+//     else location with country=NULL. Never stored as "country"
+//     unless the country registry recognized it.
 func (r *Runner) extractAndLink(ctx context.Context, articleID uuid.UUID, title, body string) int {
 	ents := r.extract.Extract(title, body)
 	if len(ents) == 0 {
 		return 0
 	}
+
 	linked := 0
 	for _, e := range ents {
-		kind := string(e.Kind)
-		country := ""
-		if c, ok := r.countries.Resolve(e.Text); ok {
-			country = c.Alpha2
-		} else if p, ok := r.gazette.Resolve(e.Text, ""); ok {
-			country = p.Alpha2
-			if kind == string(entity.KindCountry) {
-				kind = string(entity.KindCity)
-			}
+		kind, country := r.resolveKind(e.Kind, e.Text)
+		if kind == "" {
+			continue
 		}
+
 		entityID, err := r.store.UpsertEntity(ctx, store.EntityInput{
 			Kind: kind, Name: e.Text, Country: country,
 		})
@@ -202,6 +206,32 @@ func (r *Runner) extractAndLink(ctx context.Context, articleID uuid.UUID, title,
 		linked++
 	}
 	return linked
+}
+
+// resolveKind maps an extracted label to a schema kind and optional
+// country code. Returns ("", "") when the entity should be dropped.
+func (r *Runner) resolveKind(k entity.Kind, text string) (string, string) {
+	switch k {
+	case entity.KindPerson:
+		return "person", ""
+	case entity.KindOrganization:
+		return "organization", ""
+	case entity.KindProduct:
+		return "product", ""
+	case entity.KindEvent:
+		return "event", ""
+	case entity.KindLocation:
+		return "location", ""
+	case entity.KindGeo:
+		if c, ok := r.countries.Resolve(text); ok {
+			return "country", c.Alpha2
+		}
+		if p, ok := r.gazette.Resolve(text, ""); ok {
+			return "city", p.Alpha2
+		}
+		return "location", ""
+	}
+	return "", ""
 }
 
 func (r *Runner) fingerprintAndCheck(ctx context.Context, articleID uuid.UUID, title, body string) {

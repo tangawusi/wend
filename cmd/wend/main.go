@@ -34,6 +34,8 @@ func main() {
 		fatal(runCrawl(source))
 	case len(args) > 0 && args[0] == "cluster":
 		fatal(runCluster())
+	case len(args) > 1 && args[0] == "entities" && args[1] == "reset":
+		fatal(runEntitiesReset())
 	default:
 		fatal(runServer())
 	}
@@ -94,6 +96,30 @@ func runCluster() error {
 	defer cancel()
 
 	return clusterer.Run(runCtx)
+}
+
+func runEntitiesReset() error {
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+	setupLogging(cfg)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	pool, err := store.Open(ctx, cfg.DatabaseURL)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+
+	st := store.New(pool)
+	if err := st.ResetEntities(ctx); err != nil {
+		return err
+	}
+	slog.Info("entities reset")
+	return nil
 }
 
 func runCrawl(source string) error {

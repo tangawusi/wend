@@ -46,3 +46,26 @@ func (s *Store) LinkArticleEntity(ctx context.Context, in ArticleEntityInput) er
 	}
 	return nil
 }
+
+// ResetEntities deletes all entity rows and their edges. Used when the
+// extraction pipeline changes enough that prior rows are no longer
+// trustworthy. Articles and events are untouched; only entity data is
+// cleared, and the next crawl repopulates it.
+func (s *Store) ResetEntities(ctx context.Context) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	for _, q := range []string{
+		`DELETE FROM event_entities`,
+		`DELETE FROM article_entities`,
+		`DELETE FROM entities`,
+	} {
+		if _, err := tx.Exec(ctx, q); err != nil {
+			return fmt.Errorf("reset entities: %w", err)
+		}
+	}
+	return tx.Commit(ctx)
+}
