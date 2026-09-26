@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"wend.press/internal/cluster"
 	"wend.press/internal/config"
 	"wend.press/internal/entity"
 	"wend.press/internal/geo"
@@ -31,6 +32,8 @@ func main() {
 			source = args[1]
 		}
 		fatal(runCrawl(source))
+	case len(args) > 0 && args[0] == "cluster":
+		fatal(runCluster())
 	default:
 		fatal(runServer())
 	}
@@ -66,6 +69,31 @@ func runMigrate() error {
 	defer pool.Close()
 
 	return store.Migrate(ctx, pool)
+}
+
+func runCluster() error {
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+	setupLogging(cfg)
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	pool, err := store.Open(ctx, cfg.DatabaseURL)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+
+	st := store.New(pool)
+	clusterer := cluster.NewClusterer(st)
+
+	runCtx, cancel := context.WithTimeout(ctx, 30*time.Minute)
+	defer cancel()
+
+	return clusterer.Run(runCtx)
 }
 
 func runCrawl(source string) error {
